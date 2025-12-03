@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Preview Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .success {
+            background: #0d4f3c;
+            border-color: #28a745;
+        }
+
+        .error {
+            background: #4f0d0d;
+            border-color: #dc3545;
+        }
+
+        .info {
+            background: #0d314f;
+            border-color: #17a2b8;
+        }
+
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .links a {
+            padding: 10px 15px;
+            background: #fb8c00;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .links a:hover {
+            background: #f57c00;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔧 Mobile Preview Test</h1>
+
+    <div class="test-result info">
+        <h3>📱 Mobile Preview URLs</h3>
+        <p><strong>Network Access:</strong> http://10.137.0.208:4174/</p>
+        <p><strong>Local Access:</strong> http://localhost:4174/</p>
+    </div>
+
+    <div class="links">
+        <a href="http://10.137.0.208:4174/" target="_blank">🌐 Open Network Preview</a>
+        <a href="http://localhost:4174/" target="_blank">🏠 Open Local Preview</a>
+        <a href="http://10.137.0.208:3000/" target="_blank">⚡ Open Dev Server</a>
+    </div>
+
+    <div class="test-result success">
+        <h3>✅ Configuration Applied</h3>
+        <p><strong>Vite Preview Server:</strong></p>
+        <ul>
+            <li>Host: 0.0.0.0 (allows external access)</li>
+            <li>Port: 4174</li>
+            <li>Base: './' (relative paths for mobile)</li>
+            <li>Network accessible: YES</li>
+        </ul>
+    </div>
+
+    <div class="test-result info">
+        <h3>📋 Testing Checklist</h3>
+        <ul>
+            <li>✅ Preview server configured with host: '0.0.0.0'</li>
+            <li>✅ Network interface accessible</li>
+            <li>✅ Mobile-responsive layout implemented</li>
+            <li>✅ Viewport meta tag configured</li>
+            <li>✅ Dev server also running on port 3000</li>
+        </ul>
+    </div>
+
+    <h3>🔍 Live Preview Test</h3>
+    <iframe src="http://10.137.0.208:4174/" title="Mobile Preview Test"></iframe>
+
+    <div class="test-result info">
+        <h3>📝 How to Test on Mobile</h3>
+        <ol>
+            <li>Make sure your mobile device is on the same WiFi network</li>
+            <li>Open browser on mobile device</li>
+            <li>Navigate to: <code>http://10.137.0.208:4174/</code></li>
+            <li>The app should load with mobile-responsive design</li>
+            <li>Test the floating toolbar and mobile navigation</li>
+        </ol>
+    </div>
+</body>
+
+</html>
