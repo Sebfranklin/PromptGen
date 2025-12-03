@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, Search, Settings, Copy, Save, Trash2, Share2, 
   Layers, ChevronRight, Wand2, Video, Activity, Sparkles, MapPin, Lightbulb,
   User, Footprints, Wind, Music, MessageCircle, Utensils, Moon, 
-  Aperture, Film, Timer, ScanFace
+  Aperture, Film, Timer, ScanFace, Gauge, Play, Pause, Rewind, FastForward
 } from 'lucide-react';
 import { CATEGORIES, INITIAL_PROMPT_STATE } from './constants';
 import { Category, PromptState, Option, Tab, Template } from './types';
@@ -15,13 +15,26 @@ const STORAGE_KEY = 'vidgen_templates';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('build');
+  
+  // Builder State (Visual selections for Simulation)
   const [promptState, setPromptState] = useState<PromptState>(INITIAL_PROMPT_STATE);
+  
+  // Editor State (The actual text output)
+  const [customText, setCustomText] = useState('');
+  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
+  
+  // UI State
   const [openCategory, setOpenCategory] = useState<string | null>('camera');
   const [activeCustomModal, setActiveCustomModal] = useState<string | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  // Simulation State
+  const [animSpeed, setAnimSpeed] = useState(1);
+
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load templates on mount
   useEffect(() => {
@@ -40,26 +53,87 @@ function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const updateCustomText = (text: string) => {
+    setCustomText(text);
+  };
+
   const handleSelectOption = (categoryId: string, option: Option) => {
+    // 1. Update Visual State (PromptState) for Simulation
     setPromptState(prev => {
       const category = CATEGORIES.find(c => c.id === categoryId);
       if (!category) return prev;
 
       if (category.allowMultiple) {
-        // Prevent duplicates
         if (prev[categoryId].some(o => o.id === option.id)) return prev;
         return { ...prev, [categoryId]: [...prev[categoryId], option] };
       } else {
         return { ...prev, [categoryId]: [option] };
       }
     });
+
+    // 2. Insert Text at Cursor Position
+    const textToInsert = option.value;
+    const currentText = customText;
+    
+    // Use saved cursor position or end of text
+    const insertAt = cursorPosition !== null ? cursorPosition : currentText.length;
+    
+    // Add comma if not at start and previous char isn't space/comma
+    let prefix = '';
+    if (insertAt > 0) {
+      const prevChar = currentText[insertAt - 1];
+      if (prevChar && ![' ', ',', '\n'].includes(prevChar)) {
+        prefix = ', ';
+      }
+    }
+
+    const newText = 
+      currentText.slice(0, insertAt) + 
+      prefix + textToInsert + 
+      currentText.slice(insertAt);
+    
+    setCustomText(newText);
+    
+    // Update cursor position to end of insertion
+    const newCursorPos = insertAt + prefix.length + textToInsert.length;
+    setCursorPosition(newCursorPos);
+    
+    // Focus back on textarea after a short delay to allow render
+    setTimeout(() => {
+      if (textAreaRef.current) {
+        textAreaRef.current.focus();
+        textAreaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 10);
   };
 
   const handleRemoveOption = (categoryId: string, optionId: string) => {
-    setPromptState(prev => ({
-      ...prev,
-      [categoryId]: prev[categoryId].filter(o => o.id !== optionId)
-    }));
+    // 1. Update Visual State
+    let optionToRemove: Option | undefined;
+    setPromptState(prev => {
+      optionToRemove = prev[categoryId].find(o => o.id === optionId);
+      return {
+        ...prev,
+        [categoryId]: prev[categoryId].filter(o => o.id !== optionId)
+      };
+    });
+
+    // 2. Attempt to remove text (Simple string replacement)
+    // Note: This might be risky if user edited text manually, but expected behavior for a toggle.
+    if (optionToRemove) {
+      // Create regex to remove the value and potential trailing/leading comma
+      // This is a basic removal strategy
+      const val = optionToRemove.value;
+      // Try to remove "value, " or ", value" or just "value"
+      let newText = customText.replace(new RegExp(`,\\s*${val}`, 'i'), ''); // Remove leading comma
+      if (newText === customText) {
+        newText = customText.replace(new RegExp(`${val},\\s*`, 'i'), ''); // Remove trailing comma
+      }
+      if (newText === customText) {
+        newText = customText.replace(val, ''); // Remove just value
+      }
+      setCustomText(newText);
+    }
   };
 
   const handleCustomSave = (text: string) => {
@@ -76,11 +150,17 @@ function App() {
   const saveTemplate = () => {
     if (!newTemplateName.trim()) return;
     
+    // Snapshot the current custom text as the "data" effectively
+    // Since we moved to customText being source of truth, we might need to store text specifically
+    // But to keep Template type compatible, we save the promptState. 
+    // *Enhancement*: We should probably save the raw text too if we redesigned types, 
+    // but for now let's assume the template restores the visual buttons.
+    
     const newTemplate: Template = {
       id: Date.now().toString(),
       name: newTemplateName,
-      description: '',
-      data: promptState,
+      description: customText.slice(0, 50),
+      data: promptState, // This saves the button state
       createdAt: Date.now(),
       tags: ['Custom']
     };
@@ -101,35 +181,40 @@ function App() {
 
   const loadTemplate = (template: Template) => {
     setPromptState(template.data);
+    // Reconstruct text from template data
+    const order = ['style', 'subject', 'environment', 'lighting', 'camera', 'quality'];
+    let parts: string[] = [];
+    order.forEach(catId => {
+      if (template.data[catId]) {
+        parts = [...parts, ...template.data[catId].map(o => o.value)];
+      }
+    });
+    setCustomText(parts.join(', '));
     setActiveTab('build');
     showToast('Template loaded!');
   };
 
   const clearPrompt = () => {
     setPromptState(INITIAL_PROMPT_STATE);
+    setCustomText('');
     showToast('Prompt cleared');
   };
 
-  const constructedPrompt = useMemo(() => {
-    const order = ['style', 'subject', 'environment', 'lighting', 'camera', 'quality'];
-    let parts: string[] = [];
-    
-    order.forEach(catId => {
-      if (promptState[catId]) {
-        parts = [...parts, ...promptState[catId].map(o => o.value)];
-      }
-    });
-
-    return parts.join(', ');
-  }, [promptState]);
-
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(constructedPrompt);
+    navigator.clipboard.writeText(customText);
     showToast('Copied to clipboard!');
   };
 
   // --- Simulation Helpers ---
   const getSimulationConfig = () => {
+    // Calculate durations based on speed
+    // Base durations: Zoom/Pan = 15s, Handheld = 4s, Bob/Run = dynamic
+    const baseSlow = 15;
+    const baseFast = 4;
+    
+    const durationSlow = `${baseSlow / animSpeed}s`;
+    const durationFast = `${baseFast / animSpeed}s`;
+
     // 1. Camera Animation
     let cameraAnim = '';
     const camIds = promptState.camera.map(o => o.id);
@@ -170,12 +255,20 @@ function App() {
     else if (subjId === 'eating') { SubjectIcon = Utensils; }
     else if (subjId === 'sleeping') { SubjectIcon = Moon; subjectAnim = 'opacity-50'; }
 
-    // 5. Style (Cinematic bars)
+    // Subject animation duration override
+    // Walk/Run need faster updates
+    const subjectDuration = subjId === 'running' ? `${0.4 / animSpeed}s` : `${2 / animSpeed}s`;
+
+    // 5. Style
     const styleId = promptState.style[0]?.id;
     const isCinematic = styleId === 'cinematic';
     const isAnime = styleId === 'anime';
 
-    return { cameraAnim, containerAnim, lightingClass, envClass, SubjectIcon, subjectAnim, isCinematic, isAnime };
+    return { 
+      cameraAnim, containerAnim, lightingClass, envClass, 
+      SubjectIcon, subjectAnim, isCinematic, isAnime,
+      durationSlow, durationFast, subjectDuration
+    };
   };
 
   const sim = getSimulationConfig();
@@ -202,9 +295,9 @@ function App() {
   const renderPreviewTab = () => (
     <div className="h-full flex flex-col pb-24 md:pb-0">
       {/* Simulation Window */}
-      <div className="flex-1 bg-black rounded-2xl overflow-hidden border border-dark-border relative flex items-center justify-center mb-6 min-h-[350px] shadow-2xl">
+      <div className="flex-none bg-black rounded-2xl overflow-hidden border border-dark-border relative flex items-center justify-center mb-4 min-h-[300px] shadow-2xl group">
         
-        {/* Cinematic Black Bars (Overlay on top of everything) */}
+        {/* Cinematic Black Bars */}
         {sim.isCinematic && (
           <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between">
             <div className="h-[10%] bg-black w-full"></div>
@@ -212,8 +305,8 @@ function App() {
           </div>
         )}
 
-        {/* Viewfinder UI (Overlay) */}
-        <div className="absolute inset-0 z-30 pointer-events-none p-6 flex flex-col justify-between opacity-80">
+        {/* Viewfinder UI */}
+        <div className="absolute inset-0 z-30 pointer-events-none p-4 md:p-6 flex flex-col justify-between opacity-80">
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1">
               <span className="text-red-500 font-bold flex items-center gap-2 animate-pulse text-xs">
@@ -221,10 +314,20 @@ function App() {
               </span>
               <span className="font-mono text-[10px] text-white/70">00:00:14:22</span>
             </div>
-            <div className="flex gap-4 text-[10px] font-mono text-white/70">
-              <div className="flex flex-col items-center"><span className="text-orange-500">ISO</span> 800</div>
-              <div className="flex flex-col items-center"><span className="text-orange-500">SHUTTER</span> 1/50</div>
-              <div className="flex flex-col items-center"><span className="text-orange-500">WB</span> 5600K</div>
+            
+            {/* Speed Control Indicator (Top Right) */}
+            <div className="pointer-events-auto bg-black/40 backdrop-blur rounded-lg border border-white/10 p-1.5 flex items-center gap-2">
+               <Gauge size={14} className="text-orange-500" />
+               <input 
+                 type="range" 
+                 min="0.1" 
+                 max="3" 
+                 step="0.1" 
+                 value={animSpeed}
+                 onChange={(e) => setAnimSpeed(parseFloat(e.target.value))}
+                 className="w-16 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
+               />
+               <span className="text-[10px] font-mono w-6 text-right">{animSpeed.toFixed(1)}x</span>
             </div>
           </div>
           
@@ -244,18 +347,21 @@ function App() {
           </div>
         </div>
 
-        {/* Simulation Container (Handles Handheld Shake) */}
-        <div className={`relative w-full h-full overflow-hidden ${sim.containerAnim}`}>
+        {/* Simulation Container */}
+        <div 
+          className={`relative w-full h-full overflow-hidden ${sim.containerAnim}`}
+          style={{ animationDuration: sim.durationFast }}
+        >
           
-          {/* Camera Movement Wrapper (Handles Zoom/Pan) */}
-          <div className={`absolute inset-0 w-full h-full ${sim.cameraAnim} transition-transform duration-1000`}>
+          {/* Camera Movement Wrapper */}
+          <div 
+            className={`absolute inset-0 w-full h-full ${sim.cameraAnim} transition-transform`}
+            style={{ animationDuration: sim.durationSlow }}
+          >
             
             {/* Environment Background */}
             <div className={`absolute inset-0 w-full h-full ${sim.envClass} transition-colors duration-500`}>
-               {/* Grid Pattern for 'Cyberpunk' or Tech feel if needed, otherwise generic grid */}
                <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
-               
-               {/* Stars for Space */}
                {promptState.environment[0]?.id === 'space' && (
                  <div className="absolute inset-0 opacity-80" style={{backgroundImage: 'radial-gradient(white 1px, transparent 1px)', backgroundSize: '50px 50px'}}></div>
                )}
@@ -263,11 +369,12 @@ function App() {
 
             {/* Subject */}
             <div className="absolute inset-0 flex items-center justify-center">
-               <div className={`relative z-10 p-6 rounded-full bg-orange-500/10 border border-orange-500/50 backdrop-blur-sm shadow-[0_0_30px_rgba(251,140,0,0.3)] transition-all duration-500 ${sim.subjectAnim}`}>
+               <div 
+                 className={`relative z-10 p-6 rounded-full bg-orange-500/10 border border-orange-500/50 backdrop-blur-sm shadow-[0_0_30px_rgba(251,140,0,0.3)] transition-all ${sim.subjectAnim}`}
+                 style={{ animationDuration: sim.subjectDuration }}
+               >
                  <sim.SubjectIcon size={48} className={`text-orange-500 ${sim.isAnime ? 'stroke-[3px]' : 'stroke-2'}`} />
                </div>
-               
-               {/* Shadow under subject */}
                <div className="absolute top-1/2 mt-12 w-24 h-4 bg-black/40 blur-md rounded-[100%]"></div>
             </div>
 
@@ -276,29 +383,52 @@ function App() {
           {/* Lighting Overlay */}
           <div className={`absolute inset-0 z-20 pointer-events-none ${sim.lightingClass} transition-all duration-500`}></div>
           
-          {/* Scanlines for specific styles */}
+          {/* Scanlines */}
           {promptState.style[0]?.id === 'cyberpunk' && (
             <div className="absolute inset-0 z-20 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]"></div>
           )}
         </div>
       </div>
 
-      <div className="bg-dark-card border border-dark-border rounded-xl p-5 shadow-lg">
+      {/* Editor Section */}
+      <div className="flex-1 bg-dark-card border border-dark-border rounded-xl p-4 shadow-lg flex flex-col min-h-[200px]">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-orange-500 font-bold flex items-center gap-2">
-            <Sparkles size={16} /> Live Prompt Preview
+            <Sparkles size={16} /> Live Prompt Editor
           </h3>
-          <span className="text-xs text-dark-subtext">{constructedPrompt.length} chars</span>
+          <span className="text-xs text-dark-subtext bg-black/20 px-2 py-1 rounded">
+             {customText.length} chars
+          </span>
         </div>
-        <p className="text-white font-mono text-sm leading-relaxed min-h-[100px] select-all">
-          {constructedPrompt || <span className="text-gray-600 italic">Select options to build your prompt...</span>}
-        </p>
-        <button 
-          onClick={copyToClipboard}
-          className="mt-4 w-full py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          <Copy size={16} /> Copy Text
-        </button>
+        
+        <textarea
+          ref={textAreaRef}
+          value={customText}
+          onChange={(e) => {
+             updateCustomText(e.target.value);
+             setCursorPosition(e.target.selectionStart);
+          }}
+          onClick={(e) => setCursorPosition(e.currentTarget.selectionStart)}
+          onKeyUp={(e) => setCursorPosition(e.currentTarget.selectionStart)}
+          placeholder="Start typing your prompt here, or click categories to insert options at your cursor..."
+          className="flex-1 w-full bg-dark-bg/50 border border-dark-border rounded-lg p-3 text-white font-mono text-sm leading-relaxed focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none resize-none no-scrollbar"
+        />
+
+        <div className="mt-3 flex gap-2">
+            <button 
+              onClick={copyToClipboard}
+              className="flex-1 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              <Copy size={16} /> Copy
+            </button>
+            <button 
+              onClick={clearPrompt}
+              className="px-3 py-2 bg-dark-bg hover:bg-red-900/20 text-dark-subtext hover:text-red-400 border border-dark-border rounded-lg transition-colors text-sm"
+              title="Clear Text"
+            >
+              <Trash2 size={16} />
+            </button>
+        </div>
       </div>
     </div>
   );
@@ -309,7 +439,7 @@ function App() {
         <h2 className="text-2xl font-bold text-white mb-4">Final Output</h2>
         <div className="bg-black/50 border border-white/10 rounded-xl p-6 mb-6">
           <p className="font-mono text-gray-200 leading-relaxed text-lg">
-            {constructedPrompt || "Your prompt is empty."}
+            {customText || "Your prompt is empty."}
           </p>
         </div>
         
