@@ -47,18 +47,42 @@
               }
             },
             animation: {
-              'zoom-in': 'zoomIn 10s infinite alternate',
-              'pan-left': 'panLeft 10s infinite linear',
+              'zoom-in': 'zoomIn 15s infinite alternate ease-in-out',
+              'zoom-out': 'zoomOut 15s infinite alternate ease-in-out',
+              'pan-left': 'panLeft 15s infinite alternate ease-in-out',
+              'pan-right': 'panRight 15s infinite alternate ease-in-out',
+              'handheld': 'handheld 4s infinite ease-in-out',
+              'bob': 'bob 2s infinite ease-in-out',
+              'run': 'bob 0.4s infinite ease-in-out',
               'pulse-slow': 'pulse 3s infinite',
             },
             keyframes: {
               zoomIn: {
                 '0%': { transform: 'scale(1)' },
-                '100%': { transform: 'scale(1.5)' },
+                '100%': { transform: 'scale(1.4)' },
+              },
+              zoomOut: {
+                '0%': { transform: 'scale(1.4)' },
+                '100%': { transform: 'scale(1)' },
               },
               panLeft: {
                 '0%': { transform: 'translateX(0)' },
-                '100%': { transform: 'translateX(-20%)' },
+                '100%': { transform: 'translateX(-15%)' },
+              },
+              panRight: {
+                '0%': { transform: 'translateX(-15%)' },
+                '100%': { transform: 'translateX(0)' },
+              },
+              handheld: {
+                '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
+                '20%': { transform: 'translate(2px, -2px) rotate(0.5deg)' },
+                '40%': { transform: 'translate(-2px, 1px) rotate(-0.5deg)' },
+                '60%': { transform: 'translate(1px, 2px) rotate(0.2deg)' },
+                '80%': { transform: 'translate(-1px, -1px) rotate(-0.2deg)' },
+              },
+              bob: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-5%)' },
               }
             }
           },

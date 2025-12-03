@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Menu, Search, Settings, Copy, Save, Trash2, Share2, 
-  Layers, ChevronRight, Wand2, Video, Activity, Sparkles, MapPin, Lightbulb
+  Layers, ChevronRight, Wand2, Video, Activity, Sparkles, MapPin, Lightbulb,
+  User, Footprints, Wind, Music, MessageCircle, Utensils, Moon, 
+  Aperture, Film, Timer, ScanFace
 } from 'lucide-react';
 import { CATEGORIES, INITIAL_PROMPT_STATE } from './constants';
 import { Category, PromptState, Option, Tab, Template } from './types';
@@ -109,7 +111,6 @@ function App() {
   };
 
   const constructedPrompt = useMemo(() => {
-    // Order matters for video prompts usually: Style + Subject + Action + Environment + Lighting + Camera + Quality
     const order = ['style', 'subject', 'environment', 'lighting', 'camera', 'quality'];
     let parts: string[] = [];
     
@@ -126,6 +127,58 @@ function App() {
     navigator.clipboard.writeText(constructedPrompt);
     showToast('Copied to clipboard!');
   };
+
+  // --- Simulation Helpers ---
+  const getSimulationConfig = () => {
+    // 1. Camera Animation
+    let cameraAnim = '';
+    const camIds = promptState.camera.map(o => o.id);
+    if (camIds.includes('zoom_in')) cameraAnim = 'animate-zoom-in';
+    else if (camIds.includes('zoom_out')) cameraAnim = 'animate-zoom-out';
+    else if (camIds.includes('pan_left')) cameraAnim = 'animate-pan-left';
+    else if (camIds.includes('pan_right')) cameraAnim = 'animate-pan-right';
+    
+    const isHandheld = camIds.includes('handheld');
+    const containerAnim = isHandheld ? 'animate-handheld' : '';
+
+    // 2. Lighting Overlay
+    let lightingClass = 'bg-transparent';
+    const lightId = promptState.lighting[0]?.id;
+    if (lightId === 'golden_hour') lightingClass = 'bg-gradient-to-tr from-orange-500/30 via-yellow-500/10 to-transparent mix-blend-overlay';
+    if (lightId === 'blue_hour') lightingClass = 'bg-gradient-to-tr from-blue-900/50 via-blue-500/20 to-transparent mix-blend-overlay';
+    if (lightId === 'neon') lightingClass = 'bg-gradient-to-r from-purple-600/30 via-pink-600/30 to-cyan-600/30 mix-blend-screen';
+    if (lightId === 'studio') lightingClass = 'bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.15)_0%,rgba(0,0,0,0.4)_100%)]';
+    if (lightId === 'natural') lightingClass = 'bg-white/5';
+
+    // 3. Environment Background
+    let envClass = 'bg-gray-900';
+    let EnvIcon = null;
+    const envId = promptState.environment[0]?.id;
+    if (envId === 'forest') envClass = 'bg-gradient-to-b from-green-950 to-emerald-950';
+    if (envId === 'city') envClass = 'bg-gradient-to-b from-slate-800 to-gray-950';
+    if (envId === 'space') envClass = 'bg-black';
+    if (envId === 'beach') envClass = 'bg-gradient-to-b from-sky-900 via-sky-800 to-amber-900/50';
+    
+    // 4. Subject Icon & Anim
+    let SubjectIcon = User;
+    let subjectAnim = '';
+    const subjId = promptState.subject[0]?.id;
+    if (subjId === 'walking') { SubjectIcon = Footprints; subjectAnim = 'animate-bob'; }
+    else if (subjId === 'running') { SubjectIcon = Wind; subjectAnim = 'animate-run'; }
+    else if (subjId === 'dancing') { SubjectIcon = Music; subjectAnim = 'animate-pulse'; }
+    else if (subjId === 'talking') { SubjectIcon = MessageCircle; subjectAnim = 'animate-pulse-slow'; }
+    else if (subjId === 'eating') { SubjectIcon = Utensils; }
+    else if (subjId === 'sleeping') { SubjectIcon = Moon; subjectAnim = 'opacity-50'; }
+
+    // 5. Style (Cinematic bars)
+    const styleId = promptState.style[0]?.id;
+    const isCinematic = styleId === 'cinematic';
+    const isAnime = styleId === 'anime';
+
+    return { cameraAnim, containerAnim, lightingClass, envClass, SubjectIcon, subjectAnim, isCinematic, isAnime };
+  };
+
+  const sim = getSimulationConfig();
 
   // --- Render Helpers ---
 
@@ -148,25 +201,85 @@ function App() {
 
   const renderPreviewTab = () => (
     <div className="h-full flex flex-col pb-24 md:pb-0">
-      <div className="flex-1 bg-black rounded-2xl overflow-hidden border border-dark-border relative flex items-center justify-center mb-6 min-h-[300px]">
-        {/* Visual Animation Placeholder */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black z-0">
-           {/* Grid Pattern */}
-           <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#FB8C00 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
-        </div>
+      {/* Simulation Window */}
+      <div className="flex-1 bg-black rounded-2xl overflow-hidden border border-dark-border relative flex items-center justify-center mb-6 min-h-[350px] shadow-2xl">
         
-        {/* Simulated Scene Elements */}
-        <div className={`relative z-10 w-32 h-32 bg-orange-500 rounded-lg shadow-[0_0_50px_rgba(251,140,0,0.5)] 
-          ${promptState.camera.some(o => o.id === 'zoom_in') ? 'animate-zoom-in' : ''}
-          ${promptState.camera.some(o => o.id === 'pan_left') ? 'animate-pan-left' : ''}
-        `}>
-          <div className="absolute inset-0 flex items-center justify-center text-black font-bold">
-            Preview
+        {/* Cinematic Black Bars (Overlay on top of everything) */}
+        {sim.isCinematic && (
+          <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between">
+            <div className="h-[10%] bg-black w-full"></div>
+            <div className="h-[10%] bg-black w-full"></div>
+          </div>
+        )}
+
+        {/* Viewfinder UI (Overlay) */}
+        <div className="absolute inset-0 z-30 pointer-events-none p-6 flex flex-col justify-between opacity-80">
+          <div className="flex justify-between items-start">
+            <div className="flex flex-col gap-1">
+              <span className="text-red-500 font-bold flex items-center gap-2 animate-pulse text-xs">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div> REC
+              </span>
+              <span className="font-mono text-[10px] text-white/70">00:00:14:22</span>
+            </div>
+            <div className="flex gap-4 text-[10px] font-mono text-white/70">
+              <div className="flex flex-col items-center"><span className="text-orange-500">ISO</span> 800</div>
+              <div className="flex flex-col items-center"><span className="text-orange-500">SHUTTER</span> 1/50</div>
+              <div className="flex flex-col items-center"><span className="text-orange-500">WB</span> 5600K</div>
+            </div>
+          </div>
+          
+          {/* Center Crosshair */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 border border-white/20">
+             <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/20"></div>
+             <div className="absolute top-0 left-1/2 h-full w-[1px] bg-white/20"></div>
+          </div>
+
+          <div className="flex justify-between items-end">
+            <div className="text-[10px] font-mono text-white/70 flex items-center gap-2">
+              <Aperture size={12} /> F2.8
+            </div>
+            <div className="text-[10px] font-mono text-white/70 flex items-center gap-2">
+              <Film size={12} /> {sim.isCinematic ? '24 FPS' : '60 FPS'}
+            </div>
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-orange-500 font-mono border border-orange-500/30">
-          Simulation Mode
+        {/* Simulation Container (Handles Handheld Shake) */}
+        <div className={`relative w-full h-full overflow-hidden ${sim.containerAnim}`}>
+          
+          {/* Camera Movement Wrapper (Handles Zoom/Pan) */}
+          <div className={`absolute inset-0 w-full h-full ${sim.cameraAnim} transition-transform duration-1000`}>
+            
+            {/* Environment Background */}
+            <div className={`absolute inset-0 w-full h-full ${sim.envClass} transition-colors duration-500`}>
+               {/* Grid Pattern for 'Cyberpunk' or Tech feel if needed, otherwise generic grid */}
+               <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+               
+               {/* Stars for Space */}
+               {promptState.environment[0]?.id === 'space' && (
+                 <div className="absolute inset-0 opacity-80" style={{backgroundImage: 'radial-gradient(white 1px, transparent 1px)', backgroundSize: '50px 50px'}}></div>
+               )}
+            </div>
+
+            {/* Subject */}
+            <div className="absolute inset-0 flex items-center justify-center">
+               <div className={`relative z-10 p-6 rounded-full bg-orange-500/10 border border-orange-500/50 backdrop-blur-sm shadow-[0_0_30px_rgba(251,140,0,0.3)] transition-all duration-500 ${sim.subjectAnim}`}>
+                 <sim.SubjectIcon size={48} className={`text-orange-500 ${sim.isAnime ? 'stroke-[3px]' : 'stroke-2'}`} />
+               </div>
+               
+               {/* Shadow under subject */}
+               <div className="absolute top-1/2 mt-12 w-24 h-4 bg-black/40 blur-md rounded-[100%]"></div>
+            </div>
+
+          </div>
+
+          {/* Lighting Overlay */}
+          <div className={`absolute inset-0 z-20 pointer-events-none ${sim.lightingClass} transition-all duration-500`}></div>
+          
+          {/* Scanlines for specific styles */}
+          {promptState.style[0]?.id === 'cyberpunk' && (
+            <div className="absolute inset-0 z-20 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]"></div>
+          )}
         </div>
       </div>
 
@@ -177,7 +290,7 @@ function App() {
           </h3>
           <span className="text-xs text-dark-subtext">{constructedPrompt.length} chars</span>
         </div>
-        <p className="text-white font-mono text-sm leading-relaxed min-h-[100px]">
+        <p className="text-white font-mono text-sm leading-relaxed min-h-[100px] select-all">
           {constructedPrompt || <span className="text-gray-600 italic">Select options to build your prompt...</span>}
         </p>
         <button 
