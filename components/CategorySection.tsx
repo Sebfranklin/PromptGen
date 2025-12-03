@@ -41,9 +41,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         {isOpen ? <ChevronUp className="text-orange-500" /> : <ChevronDown className="text-dark-subtext" />}
       </button>
 
-      {/* Selected Chips (Always visible if items selected, or inside accordion? Design says accordion header shows count, but chips are useful) */}
-      {/* Design Prompt: "Selected Items (3) [Zoom In x]..." at top. But keeping chips inside category for context is also good UX. Let's put them inside when open. */}
-
       {isOpen && (
         <div className="px-4 pb-5 md:px-5 md:pb-6">
           <p className="text-sm text-dark-subtext mb-4">{category.description}</p>
@@ -54,12 +51,12 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               {selectedOptions.map(opt => (
                 <div 
                   key={opt.id}
-                  className="flex items-center gap-1.5 bg-orange-500/20 border border-orange-500 text-orange-100 px-3 py-1.5 rounded-full text-sm animate-fade-in"
+                  className="flex items-center gap-1.5 bg-orange-500/20 border border-orange-500 text-orange-100 px-3 py-1.5 rounded-full text-sm animate-fade-in max-w-full"
                 >
-                  <span className="truncate max-w-[150px]">{opt.label}</span>
+                  <span className="truncate max-w-[200px] md:max-w-xs">{opt.label}</span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); onRemove(opt.id); }}
-                    className="hover:bg-orange-500 rounded-full p-0.5 transition-colors"
+                    className="hover:bg-orange-500 rounded-full p-0.5 transition-colors flex-shrink-0"
                   >
                     <X size={14} />
                   </button>
@@ -77,13 +74,13 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                   key={option.id}
                   onClick={() => isSelected ? onRemove(option.id) : onSelect(option)}
                   className={`
-                    relative px-4 py-3 rounded-xl text-sm font-medium text-left transition-all duration-200 border
+                    relative px-3 py-3 rounded-xl text-sm font-medium text-left transition-all duration-200 border min-h-[3.5rem] flex items-center
                     ${isSelected 
                       ? 'bg-gradient-to-br from-orange-500 to-orange-600 border-orange-500 text-white shadow-lg shadow-orange-500/20' 
                       : 'bg-dark-bg border-dark-border text-dark-subtext hover:border-orange-500/50 hover:text-white hover:bg-dark-bg/80'}
                   `}
                 >
-                  {option.label}
+                  <span className="leading-tight break-words w-full">{option.label}</span>
                   {isSelected && (
                     <div className="absolute top-2 right-2 w-2 h-2 bg-white rounded-full"></div>
                   )}
@@ -94,7 +91,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             {/* Custom Button */}
             <button
               onClick={onOpenCustom}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-orange-500 border-2 border-dashed border-orange-500/30 hover:border-orange-500 hover:bg-orange-500/10 transition-all"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-orange-500 border-2 border-dashed border-orange-500/30 hover:border-orange-500 hover:bg-orange-500/10 transition-all min-h-[3.5rem]"
             >
               <Plus size={16} />
               Custom

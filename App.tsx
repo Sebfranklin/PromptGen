@@ -3,7 +3,8 @@ import {
   Menu, Search, Settings, Copy, Save, Trash2, Share2, 
   Layers, ChevronRight, Wand2, Video, Activity, Sparkles, MapPin, Lightbulb,
   User, Footprints, Wind, Music, MessageCircle, Utensils, Moon, 
-  Aperture, Film, Timer, ScanFace, Gauge, Play, Pause, Rewind, FastForward
+  Aperture, Film, Timer, ScanFace, Gauge, Play, Pause, Rewind, FastForward,
+  ChevronLeft, X, Plus
 } from 'lucide-react';
 import { CATEGORIES, INITIAL_PROMPT_STATE } from './constants';
 import { Category, PromptState, Option, Tab, Template } from './types';
@@ -12,6 +13,16 @@ import CustomInputModal from './components/CustomInputModal';
 import TemplateCard from './components/TemplateCard';
 
 const STORAGE_KEY = 'vidgen_templates';
+
+// Map icons string to component for dynamic rendering in toolbar
+const IconMap: {[key: string]: any} = {
+  Camera: Video,
+  Activity: Activity,
+  Sparkles: Sparkles,
+  Lightbulb: Lightbulb,
+  MapPin: MapPin,
+  Settings: Settings
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('build');
@@ -30,6 +41,7 @@ function App() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [mobileToolbarCategory, setMobileToolbarCategory] = useState<string | null>(null);
   
   // Simulation State
   const [animSpeed, setAnimSpeed] = useState(1);
@@ -149,12 +161,6 @@ function App() {
 
   const saveTemplate = () => {
     if (!newTemplateName.trim()) return;
-    
-    // Snapshot the current custom text as the "data" effectively
-    // Since we moved to customText being source of truth, we might need to store text specifically
-    // But to keep Template type compatible, we save the promptState. 
-    // *Enhancement*: We should probably save the raw text too if we redesigned types, 
-    // but for now let's assume the template restores the visual buttons.
     
     const newTemplate: Template = {
       id: Date.now().toString(),
@@ -293,7 +299,7 @@ function App() {
   );
 
   const renderPreviewTab = () => (
-    <div className="h-full flex flex-col pb-24 md:pb-0">
+    <div className="h-full flex flex-col pb-36 md:pb-0">
       {/* Simulation Window */}
       <div className="flex-none bg-black rounded-2xl overflow-hidden border border-dark-border relative flex items-center justify-center mb-4 min-h-[300px] shadow-2xl group">
         
@@ -410,7 +416,7 @@ function App() {
           }}
           onClick={(e) => setCursorPosition(e.currentTarget.selectionStart)}
           onKeyUp={(e) => setCursorPosition(e.currentTarget.selectionStart)}
-          placeholder="Start typing your prompt here, or click categories to insert options at your cursor..."
+          placeholder="Start typing..."
           className="flex-1 w-full bg-dark-bg/50 border border-dark-border rounded-lg p-3 text-white font-mono text-sm leading-relaxed focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none resize-none no-scrollbar"
         />
 
@@ -489,6 +495,86 @@ function App() {
     </div>
   );
 
+  // --- Mobile Floating Toolbar Component ---
+  const MobileFloatingToolbar = () => {
+    // Determine active category object if selected
+    const activeCategoryObj = mobileToolbarCategory 
+      ? CATEGORIES.find(c => c.id === mobileToolbarCategory) 
+      : null;
+
+    return (
+      <div className="md:hidden fixed bottom-16 left-0 right-0 z-40 px-3 pb-3">
+        <div className="bg-dark-card/95 backdrop-blur-xl border border-dark-border rounded-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.3)] overflow-hidden">
+          
+          {/* Main Level: Category Icons (Visible when no category selected) */}
+          {!activeCategoryObj && (
+            <div className="flex items-center gap-2 p-3 overflow-x-auto no-scrollbar">
+              {CATEGORIES.map(cat => {
+                 const Icon = IconMap[cat.icon] || Activity;
+                 const isActive = promptState[cat.id]?.length > 0;
+                 return (
+                   <button
+                     key={cat.id}
+                     onClick={() => setMobileToolbarCategory(cat.id)}
+                     className={`
+                       flex flex-col items-center justify-center min-w-[4rem] h-16 rounded-xl border transition-all
+                       ${isActive 
+                         ? 'bg-orange-500/10 border-orange-500 text-orange-500' 
+                         : 'bg-dark-bg border-dark-border text-dark-subtext hover:bg-dark-bg/80'}
+                     `}
+                   >
+                     <Icon size={20} className="mb-1" />
+                     <span className="text-[10px] font-medium">{cat.title.split(' ')[0]}</span>
+                   </button>
+                 );
+              })}
+            </div>
+          )}
+
+          {/* Sub Level: Options (Visible when category selected) */}
+          {activeCategoryObj && (
+            <div className="flex items-center p-2 animate-fade-in">
+              <button 
+                onClick={() => setMobileToolbarCategory(null)}
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-dark-bg border border-dark-border text-dark-subtext mr-2 flex-shrink-0"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              <div className="flex-1 overflow-x-auto no-scrollbar flex gap-2 pr-2">
+                 {/* Custom Add Button */}
+                 <button
+                    onClick={() => setActiveCustomModal(activeCategoryObj.id)}
+                    className="flex items-center gap-1 bg-dark-bg border border-dashed border-orange-500/50 text-orange-500 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap"
+                 >
+                   <Plus size={14} /> Custom
+                 </button>
+
+                 {activeCategoryObj.options.map(opt => {
+                   const isSelected = promptState[activeCategoryObj.id].some(o => o.id === opt.id);
+                   return (
+                     <button
+                       key={opt.id}
+                       onClick={() => isSelected ? handleRemoveOption(activeCategoryObj.id, opt.id) : handleSelectOption(activeCategoryObj.id, opt)}
+                       className={`
+                         px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all border
+                         ${isSelected 
+                           ? 'bg-orange-600 text-white border-orange-600' 
+                           : 'bg-dark-bg text-gray-300 border-dark-border'}
+                       `}
+                     >
+                       {opt.label}
+                     </button>
+                   );
+                 })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // --- Main Layout ---
 
   return (
@@ -561,8 +647,11 @@ function App() {
         </div>
       </main>
 
+      {/* Mobile Floating Toolbar (Visible only in Preview tab on mobile) */}
+      {activeTab === 'preview' && <MobileFloatingToolbar />}
+
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-dark-card/90 backdrop-blur-lg border-t border-dark-border pb-safe z-40">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-dark-card/90 backdrop-blur-lg border-t border-dark-border pb-safe z-50">
         <div className="flex justify-around items-center h-16">
           <button 
             onClick={() => setActiveTab('build')}
